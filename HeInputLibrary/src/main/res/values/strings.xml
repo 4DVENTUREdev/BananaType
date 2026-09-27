@@ -27,7 +27,7 @@
 
     <string name="active_heinput_label">1. Enable BananaType keyboard on your device.</string>
     <string name="select_default_label">2. Set BananaType keyboard as the default keyboard on your device</string>
-    <string name="select_chinese_dialect">3. Select Simplified or Traditional Chinese word collection. </string>
+    <string name="select_chinese_dialect">3. Please wait about 10 seconds for translations to load. </string>
     <string name="select_chinese_dialect_title">Select default Chinese word collection. </string>
 
 </resources>

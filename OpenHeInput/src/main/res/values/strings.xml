@@ -1,4 +1,15 @@
 <resources>
     <string name="app_name">BananaType</string>
     <string name="action_settings">Settings</string>
+    <string name="action_donate">DONATE</string>
+    <string name="open_source_licenses">
+BananaType uses the following open-source data and software:
+
+- CC-CEDICT — Chinese-English dictionary data, © CC-CEDICT contributors, licensed under Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). The dictionary bundled in this app has been modified (entries cleaned and trimmed) from the original release. See https://cc-cedict.org for the original project and full license text.
+
+- jieba — Chinese word segmentation and frequency data, © 2013 Sun Junyi, licensed under the MIT License. See https://github.com/fxsjy/jieba for the original project and full license text.
+
+- OpenHeInput-Android — base input method framework, used with permission from the original author.
+    </string>
+    <string name="action_licenses">Open Source Licenses</string>
 </resources>

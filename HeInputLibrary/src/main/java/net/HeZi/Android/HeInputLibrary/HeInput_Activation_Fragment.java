@@ -16,6 +16,9 @@
 
 package net.HeZi.Android.HeInputLibrary;
 
+import android.database.ContentObserver;
+import android.os.Handler;
+import android.os.Looper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -23,7 +26,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.v4.app.Fragment;
+import androidx.fragment.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -62,7 +65,7 @@ public class HeInput_Activation_Fragment extends Fragment {
     private Button activeHeInputBtn = null;
     private Button selectDefaultMethodBtn = null;
     private Button selectChineseDialectBtn = null;
-
+    private ContentObserver defaultImeObserver;
     private EditText editText = null;
     private String inputId = "";
 
@@ -128,6 +131,28 @@ public class HeInput_Activation_Fragment extends Fragment {
     public void onResume() {
         super.onResume();
         updateUI();
+
+        defaultImeObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+            @Override
+            public void onChange(boolean selfChange) {
+                super.onChange(selfChange);
+                updateUI();
+            }
+        };
+        getActivity().getContentResolver().registerContentObserver(
+                Settings.Secure.getUriFor(Settings.Secure.DEFAULT_INPUT_METHOD),
+                false,
+                defaultImeObserver
+        );
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (defaultImeObserver != null) {
+            getActivity().getContentResolver().unregisterContentObserver(defaultImeObserver);
+            defaultImeObserver = null;
+        }
     }
 
     private void updateUI()

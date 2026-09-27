@@ -5,7 +5,7 @@ android {
     namespace "net.HeZi.Android.OpenHeInput"
     defaultConfig {
         applicationId "com.fourdventuredev.bananatype"
-        minSdkVersion 17
+        minSdkVersion 21
         targetSdkVersion 36
         versionCode 1
         versionName "1.0"
@@ -22,7 +22,9 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     testImplementation 'junit:junit:4.12'
-    implementation 'com.android.support:appcompat-v7:23.1.1'
-    implementation 'com.android.support:design:23.1.1'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
     implementation project(':HeInputLibrary')
+    implementation 'com.google.android.gms:play-services-ads:23.5.0'
+    implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
 }

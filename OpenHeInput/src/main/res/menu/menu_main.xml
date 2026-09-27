@@ -3,8 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="net.HeZi.Android.OpenHeInput.MainActivity">
     <item
-        android:id="@+id/action_settings"
-        android:orderInCategory="100"
-        android:title="@string/action_settings"
+        android:id="@+id/action_donate"
+        android:title="@string/action_donate"
+        app:showAsAction="always"
+        app:actionLayout="@layout/action_donate_button" />
+    <item
+        android:id="@+id/action_licenses"
+        android:title="@string/action_licenses"
         app:showAsAction="never" />
 </menu>
