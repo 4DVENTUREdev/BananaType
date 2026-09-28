@@ -4,3 +4,13 @@ build/
 .idea/
 local.properties
 *.apk
+
+local.properties
+keystore.properties
+*.jks
+*.keystore
+*.aab
+*.apk
+build/
+.gradle/
+.idea/

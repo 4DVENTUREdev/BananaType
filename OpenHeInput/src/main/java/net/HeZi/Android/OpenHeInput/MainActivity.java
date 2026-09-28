@@ -29,6 +29,8 @@ import android.view.MenuItem;
 import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.RequestConfiguration;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity
         implements net.HeZi.Android.HeInputLibrary.HeInput_Activation_Fragment.OnFragmentInteractionListener{
@@ -39,6 +41,12 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        // Register this phone as a test device (must run before initialize/loadAd)
+        RequestConfiguration config = new RequestConfiguration.Builder()
+                .setTestDeviceIds(Arrays.asList("PASTE_THE_LONG_HEX_ID_HERE"))
+                .build();
+        MobileAds.setRequestConfiguration(config);
 
         MobileAds.initialize(this, initializationStatus -> {});
         AdView adView = findViewById(R.id.adView);

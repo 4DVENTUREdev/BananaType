@@ -192,7 +192,8 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
             } else {
                 bottom = insets.getSystemWindowInsetBottom();
             }
-            v.setPadding(0, 0, 0, bottom);
+            int extraPadding = (int) (6 * v.getResources().getDisplayMetrics().density); // ~6dp gap above nav bar
+            v.setPadding(0, 0, 0, bottom + extraPadding);
             return insets;
         });
         root.requestApplyInsets();
