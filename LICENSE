@@ -1,0 +1,58 @@
+BananaType — Proprietary License
+
+Copyright (c) 2026 4DVENTURE. All rights reserved.
+
+This repository and its contents (the "Software") are the proprietary
+property of 4DVENTURE, except where explicitly noted otherwise in the
+NOTICE.md file and the /licenses directory of this repository.
+
+1. GRANT OF RIGHTS
+
+No license, right, or permission is granted to any person to use, copy,
+modify, merge, publish, distribute, sublicense, sell, or otherwise deal
+in the Software, in whole or in part, except with the prior written
+permission of 4DVENTURE.
+
+Viewing the source code of this repository does not constitute, and
+should not be interpreted as, a grant of any such rights.
+
+2. THIRD-PARTY AND FORKED COMPONENTS
+
+This project began as a fork of OpenHeInput-Android. The original
+OpenHeInput-Android repository did not carry a public license. 4DVENTURE
+obtained explicit written permission from the original author to fork,
+modify, and distribute this project, including for commercial purposes.
+This permission applies specifically to 4DVENTURE's use and does not
+constitute a public license grant over the original author's work by
+any other party.
+
+This project also bundles the following third-party data and software,
+each of which remains governed by its own original license regardless
+of the proprietary terms above. See NOTICE.md and /licenses for full
+details:
+
+  - CC-CEDICT dictionary data — Creative Commons Attribution-ShareAlike
+    4.0 International (CC BY-SA 4.0)
+  - jieba word-frequency data — MIT License, Copyright (c) 2013 Sun Junyi
+
+Nothing in this LICENSE file restricts the rights granted by those
+components' own original licenses with respect to that specific
+third-party material. It restricts only 4DVENTURE's own original
+contributions and the fork as a combined work.
+
+3. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+4. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL 4DVENTURE BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+5. CONTACT
+
+For licensing inquiries, contact: jasonjunchen07@gmail.com
