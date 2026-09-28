@@ -20,11 +20,11 @@ so the keyboard doubles as a lightweight vocabulary aid for learners.
 - A candidate bar sits directly above the keyboard, showing ranked Pinyin
   matches as you type; swipe left/right on the bar to page through more
   candidates.
-- CC-CEDICT is bundled as a plain-text asset and loaded into an in-memory
-  dictionary at startup. Each candidate word is looked up against it, and
-  its English gloss is shown right next to the Chinese candidate.
-- A toggle key switches between Chinese and English input modes, hiding
-  the candidate bar in English mode.
+- A modified version of CC-CEDICT is bundled as a plain-text asset and loaded
+- into an in-memory dictionary at startup. Each candidate word is looked up
+- against it, and its English gloss is shown right next to the Chinese candidate.
+- A toggle key switches between Chinese and English input modes, hiding the
+  candidate bar in English mode.
 - Built on a modernized fork of the decade-old
   [OpenHeInput-Android](https://github.com/HeChinese/OpenHeInput-Android)
   project, updated to current Gradle/AGP and Android API levels.
