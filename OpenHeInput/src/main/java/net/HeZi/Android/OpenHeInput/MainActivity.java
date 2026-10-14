@@ -31,12 +31,15 @@ import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.RequestConfiguration;
 import java.util.Arrays;
-import android.view.View;
 import android.widget.Button;
 import com.google.android.ump.ConsentInformation;
 import com.google.android.ump.ConsentRequestParameters;
 import com.google.android.ump.UserMessagingPlatform;
-
+import androidx.activity.EdgeToEdge;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 public class MainActivity extends AppCompatActivity
         implements net.HeZi.Android.HeInputLibrary.HeInput_Activation_Fragment.OnFragmentInteractionListener{
@@ -45,7 +48,27 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        View root = findViewById(R.id.main);
+        View appBar = findViewById(R.id.appbar);
+
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                            | WindowInsetsCompat.Type.displayCutout());
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+
+            appBar.setPadding(0, bars.top, 0, 0);
+            v.setPadding(bars.left, 0, bars.right, Math.max(bars.bottom, ime.bottom));
+            return insets;
+        });
+
+        // White status bar icons for a dark toolbar. Use true if your toolbar colour is light.
+        new WindowInsetsControllerCompat(getWindow(), root)
+                .setAppearanceLightStatusBars(false);
+
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
