@@ -31,10 +31,17 @@ import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.RequestConfiguration;
 import java.util.Arrays;
+import android.view.View;
+import android.widget.Button;
+import com.google.android.ump.ConsentInformation;
+import com.google.android.ump.ConsentRequestParameters;
+import com.google.android.ump.UserMessagingPlatform;
+
 
 public class MainActivity extends AppCompatActivity
         implements net.HeZi.Android.HeInputLibrary.HeInput_Activation_Fragment.OnFragmentInteractionListener{
-
+    private ConsentInformation consentInfo;
+    private boolean adsStarted = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -42,15 +49,42 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        // Register this phone as a test device (must run before initialize/loadAd)
-        RequestConfiguration config = new RequestConfiguration.Builder()
-                .setTestDeviceIds(Arrays.asList("PASTE_THE_LONG_HEX_ID_HERE"))
-                .build();
-        MobileAds.setRequestConfiguration(config);
+        setUpConsent();
+    }
 
+    private void setUpConsent() {
+        consentInfo = UserMessagingPlatform.getConsentInformation(this);
+        ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
+
+        consentInfo.requestConsentInfoUpdate(this, params,
+                () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> {
+                    if (consentInfo.canRequestAds()) startAds();
+                    updatePrivacyButton();
+                }),
+                requestError -> {
+                    if (consentInfo.canRequestAds()) startAds();
+                });
+
+        // Returning users who already gave consent can load ads immediately
+        if (consentInfo.canRequestAds()) startAds();
+        updatePrivacyButton();
+    }
+
+    private void startAds() {
+        if (adsStarted) return;
+        adsStarted = true;
         MobileAds.initialize(this, initializationStatus -> {});
         AdView adView = findViewById(R.id.adView);
         adView.loadAd(new AdRequest.Builder().build());
+    }
+
+    private void updatePrivacyButton() {
+        Button b = findViewById(R.id.privacy_settings_button);
+        boolean required = consentInfo.getPrivacyOptionsRequirementStatus()
+                == ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED;
+        b.setVisibility(required ? View.VISIBLE : View.GONE);
+        b.setOnClickListener(v ->
+                UserMessagingPlatform.showPrivacyOptionsForm(this, formError -> { }));
     }
 
     @Override
@@ -82,7 +116,11 @@ public class MainActivity extends AppCompatActivity
                     .show();
             return true;
         }
-
+        if (id == R.id.action_privacy) {
+            startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://4dventuredev.github.io/BananaType/privacy.html")));
+            return true;
+        }
         return super.onOptionsItemSelected(item);
     }
 

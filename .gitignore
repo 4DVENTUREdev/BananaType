@@ -1,16 +1,18 @@
-
-.gradle/
-build/
-.idea/
-local.properties
-*.apk
-
-local.properties
+# Signing secrets
 keystore.properties
 *.jks
 *.keystore
+
+# Build output
+build/
+release/
 *.aab
 *.apk
-build/
+
+# Local / IDE files
+local.properties
 .gradle/
 .idea/
+*.iml
+captures/
+.DS_Store

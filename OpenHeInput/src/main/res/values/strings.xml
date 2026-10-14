@@ -12,4 +12,5 @@ BananaType uses the following open-source data and software:
 - OpenHeInput-Android — base input method framework, used with permission from the original author.
     </string>
     <string name="action_licenses">Open Source Licenses</string>
+    <string name="action_privacy">Privacy policy</string>
 </resources>
