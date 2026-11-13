@@ -121,6 +121,10 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
      * Main initialization of the input method component.  Be sure to call
      * to super class.
      */
+    @Override
+    public boolean onEvaluateFullscreenMode() {
+        return false;
+    }
     //Step 1
     //The IME Lifecycle
     //http://developer.android.com/guide/topics/text/creating-input-method.html
@@ -147,29 +151,35 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
     //Step 2
     //The IME Lifecycle
     //http://developer.android.com/guide/topics/text/creating-input-method.html
+    private int mKbWidth;   // add this field near your other private fields
+
     @Override public void onInitializeInterface()
     {
-        Log.d("", "onInitializeInterface.....2");
+        int displayWidth = getMaxWidth();
+        if (mQwertyKeyboard != null && displayWidth == mLastDisplayWidth) return;
+        mLastDisplayWidth = displayWidth;
 
-        if (heKeyboard_4x6 != null) {
-            // Configuration changes can happen after the keyboard gets recreated,
-            // so we need to be able to re-build the keyboards if the available
-            // space has changed.
-            int displayWidth = getMaxWidth();
-            if (displayWidth == mLastDisplayWidth) return;
-            mLastDisplayWidth = displayWidth;
-        }
-        else
-        {
-	        heKeyboard_4x6 = new HeKeyboard(this, R.xml.keyboard_4x6);
-	        heKeyboard_6x7 = new HeKeyboard(this, R.xml.keyboard_6x7); //R.xml.keyboard_6x6_horizontal
-	        //englishKeyboard_6x6 = new HeKeyboard(this, R.xml.english_keyboard_6x6);
-	        //heEnglishKeyboard_6x6 = new HeKeyboard(this, R.xml.he_english_keyboard_6x6);
+        boolean landscape = getResources().getConfiguration().orientation
+                == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        mKbWidth = landscape ? (int) (displayWidth * 0.7f) : displayWidth;
+        int dispH = getResources().getDisplayMetrics().heightPixels;
 
-            mQwertyKeyboard = new HeKeyboard(this, R.xml.qwerty);
-	        mSymbolsKeyboard = new HeKeyboard(this, R.xml.symbols);
-	        mSymbolsShiftedKeyboard = new HeKeyboard(this, R.xml.symbols_shift);
-        }
+        boolean wasQwerty = mCurKeyboard == mQwertyKeyboard;
+        boolean wasSym = mCurKeyboard == mSymbolsKeyboard;
+        boolean wasSymShift = mCurKeyboard == mSymbolsShiftedKeyboard;
+
+        mQwertyKeyboard = new HeKeyboard(this, R.xml.qwerty, 0, mKbWidth, dispH);
+        mSymbolsKeyboard = new HeKeyboard(this, R.xml.symbols, 0, mKbWidth, dispH);
+        mSymbolsShiftedKeyboard = new HeKeyboard(this, R.xml.symbols_shift, 0, mKbWidth, dispH);
+
+        if (wasQwerty) mCurKeyboard = mQwertyKeyboard;
+        else if (wasSym) mCurKeyboard = mSymbolsKeyboard;
+        else if (wasSymShift) mCurKeyboard = mSymbolsShiftedKeyboard;
+        mPreKeyboard = null;
+
+        mQwertyKeyboard.setShifted(mShiftState != HeKeyboard.SHIFT_OFF);
+        mQwertyKeyboard.setShiftIconState(getResources(), mShiftState);
+        if (dataServer != null) updateModeKeyLabel();
     }
 
     /**
@@ -184,7 +194,7 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
     @Override public View onCreateInputView() {
         View root = getLayoutInflater().inflate(R.layout.input_view_combined, null);
         mInputView = root.findViewById(R.id.keyboard);
-        root.setBackgroundColor(0xFFEFEFF8);   // fills the nav-bar area; adjust to match your key colour
+        root.setBackgroundColor(0xFFEFEFF8);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             int bottom;
             if (android.os.Build.VERSION.SDK_INT >= 30) {
@@ -192,8 +202,9 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
             } else {
                 bottom = insets.getSystemWindowInsetBottom();
             }
-            int extraPadding = (int) (6 * v.getResources().getDisplayMetrics().density); // ~6dp gap above nav bar
-            v.setPadding(0, 0, 0, bottom + extraPadding);
+            int extraPadding = (int) (6 * v.getResources().getDisplayMetrics().density);
+            int side = Math.max(0, (getMaxWidth() - mKbWidth) / 2);
+            v.setPadding(side, 0, side, bottom + extraPadding);
             return insets;
         });
         root.requestApplyInsets();
@@ -205,7 +216,7 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
         mCandidateListView.setService(this);
 
         mInputView.setOnKeyboardActionListener(this);
-        setHeKeyboard(heKeyboard_4x6);
+        setHeKeyboard(mQwertyKeyboard);
         mCandidatesContainer.setVisibility(View.GONE);
         return root;
     }
@@ -265,16 +276,10 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
     {
         super.onStartInput(attribute, restarting);
 
-        //Log.d("","onStartInput.....3");
-
-        // Reset our state.  We want to do this even if restarting, because
-        // the underlying state of the text editor could have changed in any way.
-        //mComposing.setLength(0);
         if (mInputView != null) {
             mInputView.requestApplyInsets();
         }
         if (!restarting) {
-            // Clear shift states.
             mMetaState = 0;
             dataServer.clearState();
             setShiftState(HeKeyboard.SHIFT_OFF);
@@ -283,112 +288,28 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
         mCompletionOn = false;
         mCompletions = null;
 
-        // We are now going to initialize our state based on the type of
-        // text being edited.
-        switch (attribute.inputType & InputType.TYPE_MASK_CLASS)
-        {
-            case InputType.TYPE_CLASS_NUMBER:
-            case InputType.TYPE_CLASS_DATETIME:
-                // Numbers and dates default to the symbols keyboard, with
-                // no extra features.
-            	//mPreKeyboard = mCurKeyboard;
-                mCurKeyboard = mSymbolsKeyboard;
-                break;
+        int cls = attribute.inputType & InputType.TYPE_MASK_CLASS;
+        if (cls == InputType.TYPE_CLASS_NUMBER
+                || cls == InputType.TYPE_CLASS_DATETIME
+                || cls == InputType.TYPE_CLASS_PHONE) {
+            mCurKeyboard = mSymbolsKeyboard;
+        } else {
+            dataServer.clearState();
+            mCurKeyboard = mQwertyKeyboard;
+            mPredictionOn = dataServer.setting.currentKeyMode != Setting.InputMode.EnglishMode;
 
-            case InputType.TYPE_CLASS_PHONE:
-                // Phones will also default to the symbols keyboard, though
-                // often you will want to have a dedicated phone keyboard.
-                mCurKeyboard = mSymbolsKeyboard;
-                break;
-
-            case InputType.TYPE_CLASS_TEXT:
-                // This is general text editing.  We will default to the
-                // normal alphabetic keyboard, and assume that we should
-                // be doing predictive text (showing candidates as the
-                // user types).
-				mPredictionOn = true;
-		    	dataServer.clearState();
-       			switch(dataServer.setting.currentKeyMode)
-    			{
-                    case HeMa_Simplified_Mode:
-                    case HeMa_Traditional_Mode:
-                        if(dataServer.setting.bHeMaModeNumpad) {
-    							mCurKeyboard = heKeyboard_4x6;
-    					}
-    					else {
-    							mCurKeyboard = heKeyboard_6x7;
-    					}
-    					break;
-    				case PinYinMode:
-    					if(dataServer.setting.bPinYinModeNumpad) {
-    							mCurKeyboard = heKeyboard_4x6;
-    					}
-    					else {
-    							mCurKeyboard = mQwertyKeyboard;//heEnglishKeyboard_6x6;
-    					}
-    					break;
-    				case HeEnglishMode:
-    					if(dataServer.setting.bHeEnglishModeNumpad) {
-    							mCurKeyboard = heKeyboard_4x6;
-    					}
-    					else {
-    							mCurKeyboard = mQwertyKeyboard;//heEnglishKeyboard_6x6;
-    					}
-    					break;
-    				case EnglishMode:
-    					mPredictionOn = false;
-    						mCurKeyboard = mQwertyKeyboard;// englishKeyboard_6x6;
-    					break;
-    				default:
-    					break;
-    			}
-
-                // We now look for a few special variations of text that will
-                // modify our behavior.
-                int variation = attribute.inputType & InputType.TYPE_MASK_VARIATION;
-                if (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-                        variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) {
-                    // Do not display predictions / what the user is typing
-                    // when they are entering a password.
-                    mPredictionOn = false;
-                    mCurKeyboard = mQwertyKeyboard;//englishKeyboard_6x6;
-                }
-
-                if (variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-                        || variation == InputType.TYPE_TEXT_VARIATION_URI
-                        || variation == InputType.TYPE_TEXT_VARIATION_FILTER) {
-                    // Our predictions are not useful for e-mail addresses
-                    // or URIs.
-                    mPredictionOn = false;
-                    mCurKeyboard = mQwertyKeyboard;//englishKeyboard_6x6;
-                }
-
-                if ((attribute.inputType & InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE) != 0) {
-                    // If this is an auto-complete text view, then our predictions
-                    // will not be shown and instead we will allow the editor
-                    // to supply their own.  We only show the editor's
-                    // candidates when in fullscreen mode, otherwise relying
-                    // own it displaying its own UI.
-                    mPredictionOn = false;
-                    mCurKeyboard = mQwertyKeyboard;//englishKeyboard_6x6;
-                    mCompletionOn = isFullscreenMode();
-                }
-
-                // We also want to look at the current state of the editor
-                // to decide whether our alphabetic keyboard should start out
-                // shifted.
-                updateShiftKeyState(attribute);
-                break;
-
-            default:
-                // For all unknown input types, default to the alphabetic
-                // keyboard with no special features.
-                mCurKeyboard = heKeyboard_4x6;
-                updateShiftKeyState(attribute);
+            int variation = attribute.inputType & InputType.TYPE_MASK_VARIATION;
+            if (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    || variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                    || variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+                    || variation == InputType.TYPE_TEXT_VARIATION_URI
+                    || variation == InputType.TYPE_TEXT_VARIATION_FILTER
+                    || (attribute.inputType & InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE) != 0) {
+                mPredictionOn = false;
+            }
+            updateShiftKeyState(attribute);
         }
 
-        // Update the label on the enter key, depending on what the application
-        // says it will do.
         mCurKeyboard.setImeOptions(getResources(), attribute.imeOptions);
     }
 
@@ -1002,44 +923,33 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
     //Handle Control key
     private void handleControlKey(int primaryCode)
     {
-    	switch(primaryCode)
-    	{
-    		case -1:	//Shift Key
-    			handleShift();
-    			break;
-    		case -2:	//Mode Key  Keyboard.KEYCODE_MODE_CHANGE
-    			if(dataServer.isMenuShow())
-    			{
-    				dataServer.clearState();
-                    mCandidatesContainer.setVisibility(View.GONE);
-    			}
-    			else if(dataServer.typingCharAndNumber(-2))
+        switch(primaryCode)
+        {
+            case -1:    //Shift Key
+                handleShift();
+                break;
+            case -2:    //legacy menu key, disabled
+                break;
+            case -3:    //Cancel Key
+                if(dataServer.numOfCand>0)
                 {
-                		updateCandidates();
-                }
-    			break;
-    		case -3:	//Cancel Key, Keyboard.KEYCODE_ESCAPE,
-    			if(dataServer.numOfCand>0)
-        		{
-        			dataServer.clearState();
-        			if(mCandidateListView != null)
-        			{
+                    dataServer.clearState();
+                    if(mCandidateListView != null)
+                    {
                         mCandidatesContainer.setVisibility(View.GONE);
-        			}
-        		}
-        		else
-        		{
+                    }
+                }
+                else
+                {
                     mCandidatesContainer.setVisibility(View.GONE);
-        			handleClose();
-                    //let application to handle keyboad show/hide
-                    //It is used in CustomTextView of HeBook application.
+                    handleClose();
                     keyDownUp(KeyEvent.KEYCODE_ESCAPE);
-        		}
-    			break;
-    		case -5:	//Delete Key
-    			handleBackspace();
-    			break;
-            case -11:           //Chinese/English toggle (on QWERTY) or back from symbols
+                }
+                break;
+            case -5:    //Delete Key
+                handleBackspace();
+                break;
+            case -11:   //Chinese/English toggle (on QWERTY) or back from symbols
             {
                 boolean fromSymbols = (mCurKeyboard == mSymbolsKeyboard
                         || mCurKeyboard == mSymbolsShiftedKeyboard);
@@ -1063,23 +973,16 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
                 mCandidatesContainer.setVisibility(View.GONE);
             }
             break;
-            case -12:   //Number keyboard and back to previous keyboard
+            case -12:   //Symbols keyboard and back
             {
-                //Switch to Number keyboard
-                if (mCurKeyboard == mQwertyKeyboard || mCurKeyboard == heKeyboard_4x6) {
-                    mModeBeforeSymbols = dataServer.setting.currentKeyMode;   // NEW: remember pinyin/English mode
+                if (mCurKeyboard == mQwertyKeyboard) {
+                    mModeBeforeSymbols = dataServer.setting.currentKeyMode;
                     mPredictionOn = false;
-                    mPreKeyboard = mCurKeyboard;
                     mCurKeyboard = mSymbolsKeyboard;
                 } else if (mCurKeyboard == mSymbolsKeyboard) {
-                    if (mPreKeyboard == mQwertyKeyboard) {
-                        mCurKeyboard = mQwertyKeyboard;
-                        dataServer.setting.currentKeyMode = mModeBeforeSymbols;   // NEW: restore mode
-                        mPredictionOn = (mModeBeforeSymbols != Setting.InputMode.EnglishMode);   // NEW: was "false"
-                    } else {
-                        mCurKeyboard = heKeyboard_4x6;
-                        mPredictionOn = true;
-                    }
+                    mCurKeyboard = mQwertyKeyboard;
+                    dataServer.setting.currentKeyMode = mModeBeforeSymbols;
+                    mPredictionOn = (mModeBeforeSymbols != Setting.InputMode.EnglishMode);
                 } else if (mCurKeyboard == mSymbolsShiftedKeyboard) {
                     mCurKeyboard = mSymbolsKeyboard;
                     mPredictionOn = false;
@@ -1090,9 +993,8 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
                 mCandidatesContainer.setVisibility(View.GONE);
             }
             break;
-            case -13:	//PinYin key
+            case -13:   //PinYin key
             {
-                //Switch to PinYin Mode and English keyboard
                 if (mCurKeyboard != mQwertyKeyboard) {
                     mCurKeyboard = mQwertyKeyboard;
                     dataServer.setting.currentKeyMode = Setting.InputMode.PinYinMode;
@@ -1103,105 +1005,88 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
                 dataServer.clearState();
             }
             break;
-       	case -201:	//Up arrow Key
-    			if(dataServer.changeItemIndexBy(-1))
-        		{
-        			mCandidateListView.setItemChecked(dataServer.itemIndex, true);
-        			updatePinYinPrompt();
-        		}
-    			else if(dataServer.numOfCand>0) //but list page does not change
-    			{
-    				;
-    			}
-    			else //numOfCand == 0
-    			{
-    				keyDownUp(KeyEvent.KEYCODE_DPAD_UP);
-    			}
-    			break;
-    		case -202:	//Down arrow key
-    			if(dataServer.changeItemIndexBy(1))
-        		{
-        			mCandidateListView.setItemChecked(dataServer.itemIndex, true);
-        			updatePinYinPrompt();
-        		}
-    			else if(dataServer.numOfCand>0) //but list page does not change
-    			{
-    				;
-    			}
-    			else //numOfCand == 0
-    			{
-    				keyDownUp(KeyEvent.KEYCODE_DPAD_DOWN);
-    			}
+            case -201:  //Up arrow Key
+                if(dataServer.changeItemIndexBy(-1))
+                {
+                    mCandidateListView.setItemChecked(dataServer.itemIndex, true);
+                    updatePinYinPrompt();
+                }
+                else if(dataServer.numOfCand == 0)
+                {
+                    keyDownUp(KeyEvent.KEYCODE_DPAD_UP);
+                }
                 break;
-    		case -203:	//Left arrow Key
-    			if(dataServer.changePageIndexBy(-1)) //list page changed
-        		{
-        			mCandidateListView.printListViewPage(dataServer.onePageRows, dataServer.getItemIndex());
-        			pageIndicatorView.setText(dataServer.getPageIndicatorStr());
-        			updatePinYinPrompt();
-        		}
-    			else if(dataServer.numOfCand>0) //but list page does not change
-    			{
-    				;
-    			}
-    			else //numOfCand == 0
-    			{
-    				keyDownUp(KeyEvent.KEYCODE_DPAD_LEFT);
-    			}
-    			break;
-    		case -204:	//right arrow key
-    			if(dataServer.changePageIndexBy(1))
-        		{
-        			mCandidateListView.printListViewPage(dataServer.onePageRows,dataServer.getItemIndex());
-        			pageIndicatorView.setText(dataServer.getPageIndicatorStr());
-        			updatePinYinPrompt();
-        		}
-    			else if(dataServer.numOfCand>0) //but list page does not change
-    			{
-    				;
-    			}
-    			else //numOfCand == 0
-    			{
-    				keyDownUp(KeyEvent.KEYCODE_DPAD_RIGHT);
-    			}
-    			break;
-    		case 10:	//return Key
-    			if(dataServer.isMenuShow())
-    	    	{
-    	    		handleCharAndNumber(dataServer.getSelectedZiCiPromptMa(),null);
-    	     	}
-    			else if(dataServer.isInputable())
-    			{
-        			commitTyped();
-    			}
-        		else
-        		{
-        			keyDownUp(KeyEvent.KEYCODE_ENTER);
-        		}
-    			break;
-    		case 32:	//space key  KeyEvent.KEYCODE_SPACE = 62
-    			if(dataServer.isMenuShow())
-    	    	{
+            case -202:  //Down arrow key
+                if(dataServer.changeItemIndexBy(1))
+                {
+                    mCandidateListView.setItemChecked(dataServer.itemIndex, true);
+                    updatePinYinPrompt();
+                }
+                else if(dataServer.numOfCand == 0)
+                {
+                    keyDownUp(KeyEvent.KEYCODE_DPAD_DOWN);
+                }
+                break;
+            case -203:  //Left arrow Key
+                if(dataServer.changePageIndexBy(-1))
+                {
+                    mCandidateListView.printListViewPage(dataServer.onePageRows, dataServer.getItemIndex());
+                    pageIndicatorView.setText(dataServer.getPageIndicatorStr());
+                    updatePinYinPrompt();
+                }
+                else if(dataServer.numOfCand == 0)
+                {
+                    keyDownUp(KeyEvent.KEYCODE_DPAD_LEFT);
+                }
+                break;
+            case -204:  //Right arrow key
+                if(dataServer.changePageIndexBy(1))
+                {
+                    mCandidateListView.printListViewPage(dataServer.onePageRows, dataServer.getItemIndex());
+                    pageIndicatorView.setText(dataServer.getPageIndicatorStr());
+                    updatePinYinPrompt();
+                }
+                else if(dataServer.numOfCand == 0)
+                {
+                    keyDownUp(KeyEvent.KEYCODE_DPAD_RIGHT);
+                }
+                break;
+            case 10:    //Return key
+                if(dataServer.isMenuShow())
+                {
                     handleCharAndNumber(dataServer.getSelectedZiCiPromptMa(),null);
-    	     	}
-    			else if(dataServer.isInputable())
-    			{
-        			commitTyped();
-    			}
-        		else
-        		{
-        			//getCurrentInputConnection().commitText(" ", 1);
+                }
+                else if(dataServer.isInputable())
+                {
+                    commitTyped();
+                }
+                else
+                {
+                    keyDownUp(KeyEvent.KEYCODE_ENTER);
+                }
+                break;
+            case 32:    //Space key
+                if(dataServer.isMenuShow())
+                {
+                    handleCharAndNumber(dataServer.getSelectedZiCiPromptMa(),null);
+                }
+                else if(dataServer.isInputable())
+                {
+                    commitTyped();
+                }
+                else
+                {
                     if(wantChinesePuncture)
                         heCommitText(" ",true,true);
                     else
                         heCommitText(" ",false,true);
-        		}
-    			break;
-    		case -100:	//HeKeyboardView.KEYCODE_OPTIONS
-    			break;
-    		default:
-    			break;
-    	}
+                }
+                break;
+            case -100:  //HeKeyboardView.KEYCODE_OPTIONS
+                break;
+            default:
+                break;
+        }
     }
 
     private void updateTypedMa()
@@ -1301,142 +1186,53 @@ implements KeyboardView.OnKeyboardActionListener, CandidateListView.CandidateIte
 
     protected OnDataServerListener dataServerListener = new OnDataServerListener()
     {
-		@Override
-		public void keyboardChange(Setting.InputMode inputMode)
-		{
-			switch(inputMode)
-			{
-				case HeMa_Simplified_Mode:
-                case HeMa_Traditional_Mode:
-					mPredictionOn = true;
-					if(dataServer.setting.bHeMaModeNumpad)
-					{
-						if(mCurKeyboard != heKeyboard_4x6)
-						{
-					    	dataServer.clearState();
-							mCurKeyboard = heKeyboard_4x6;
-							setHeKeyboard(mCurKeyboard);
-						}
-					}
-					else
-					{
-						if(mCurKeyboard != heKeyboard_6x7)
-						{
-					    	dataServer.clearState();
-							mCurKeyboard = heKeyboard_6x7;
-							setHeKeyboard(mCurKeyboard);
-						}
-					}
-					break;
-				case PinYinMode:
-					mPredictionOn = true;
-					if(dataServer.setting.bPinYinModeNumpad)
-					{
-						if(mCurKeyboard != heKeyboard_4x6)
-						{
-					    	dataServer.clearState();
-							mCurKeyboard = heKeyboard_4x6;
-							setHeKeyboard(mCurKeyboard);
-						}
-					}
-					else
-					{
-						if(mCurKeyboard != mQwertyKeyboard /*englishKeyboard_6x6*/)
-						{
-					    	dataServer.clearState();
-							mCurKeyboard = mQwertyKeyboard /*englishKeyboard_6x6*/;
-							setHeKeyboard(mCurKeyboard);
-						}
-					}
-					break;
-				case HeEnglishMode:
-					mPredictionOn = true;
-					if(dataServer.setting.bHeEnglishModeNumpad)
-					{
-						if(mCurKeyboard != heKeyboard_4x6)
-						{
-					    	dataServer.clearState();
-							mCurKeyboard = heKeyboard_4x6;
-							setHeKeyboard(mCurKeyboard);
-						}
-					}
-					else
-					{
-						if(mCurKeyboard != mQwertyKeyboard /*englishKeyboard_6x6*/)
-						{
-					    	dataServer.clearState();
-							mCurKeyboard = mQwertyKeyboard /*englishKeyboard_6x6*/;
-							setHeKeyboard(mCurKeyboard);
-						}
-					}
-					break;
-				case NumberMode:
-					mPredictionOn = false;
-					if(mCurKeyboard != heKeyboard_4x6)
-					{
-				    	dataServer.clearState();
-						mCurKeyboard = heKeyboard_4x6;
-						setHeKeyboard(mCurKeyboard);
-					}
-					break;
-				case EnglishMode:
-					mPredictionOn = false;
-					if(mCurKeyboard != mQwertyKeyboard /*englishKeyboard_6x6*/)
-					{
-				    	dataServer.clearState();
-						mCurKeyboard = mQwertyKeyboard /*englishKeyboard_6x6*/;
-						setHeKeyboard(mCurKeyboard);
-					}
-					break;
-				default:
-					break;
-			}
+        @Override
+        public void keyboardChange(Setting.InputMode inputMode)
+        {
+            mCurKeyboard = mQwertyKeyboard;
+            mPredictionOn = inputMode != Setting.InputMode.EnglishMode;
+            setHeKeyboard(mCurKeyboard);
             mCandidatesContainer.setVisibility(View.GONE);
-			//Log.d("Trace..","menu 52 selected.....2....... ");
-		}
+        }
 
-		@Override
-		public void saveSharedPreferences()
-		{
-			SharedPreferences.Editor editor = sharedPreferences.edit();
+        @Override
+        public void saveSharedPreferences()
+        {
+            SharedPreferences.Editor editor = sharedPreferences.edit();
 
             if (dataServer.setting.currentKeyMode == Setting.InputMode.HeMa_Simplified_Mode) {
                 editor.putBoolean("HeInput_Simplified_Chinese", true);
             }
 
-			editor.putBoolean("HeInput_Normal_ZiKu", dataServer.setting.bNormalZiKu);
-			editor.putBoolean("HeInput_PinYin_Prompt", dataServer.setting.bPinYinPrompt);
-			editor.putBoolean("HeInput_LianXiang", dataServer.setting.bLianXiang);
+            editor.putBoolean("HeInput_Normal_ZiKu", dataServer.setting.bNormalZiKu);
+            editor.putBoolean("HeInput_PinYin_Prompt", dataServer.setting.bPinYinPrompt);
+            editor.putBoolean("HeInput_LianXiang", dataServer.setting.bLianXiang);
 
-			editor.putBoolean("HeInput_HeMaModeNumpad", dataServer.setting.bHeMaModeNumpad);
-			editor.putBoolean("HeInput_PinYinModeNumpad", dataServer.setting.bPinYinModeNumpad);
-			editor.putBoolean("HeInput_HeEnglishModeNumpad", dataServer.setting.bHeEnglishModeNumpad);
+            editor.putBoolean("HeInput_HeMaModeNumpad", dataServer.setting.bHeMaModeNumpad);
+            editor.putBoolean("HeInput_PinYinModeNumpad", dataServer.setting.bPinYinModeNumpad);
+            editor.putBoolean("HeInput_HeEnglishModeNumpad", dataServer.setting.bHeEnglishModeNumpad);
 
-			editor.commit();
-		}
+            editor.commit();
+        }
 
-		@Override
-		public void commitString(String typedString)
-		{
-			if(typedString.length() > 0)
-	    	{
-				//getCurrentInputConnection().commitText(typedString, 1);
+        @Override
+        public void commitString(String typedString)
+        {
+            if(typedString.length() > 0)
+            {
                 heCommitText(typedString,true,true);
-	    		dataServer.clearState();
-	    		//mCandidatesContainer.setVisibility(View.GONE);
-	    	}
-		}
+                dataServer.clearState();
+            }
+        }
 
-		@Override
-		public void updateTypedMaView() {
-			// TODO Auto-generated method stub
-			updateTypedMa();
-		}
+        @Override
+        public void updateTypedMaView() {
+            updateTypedMa();
+        }
 
-		@Override
-		public void changeSelection(int byNum) {
-			// TODO Auto-generated method stub
-			onKey(-63, null); //arror down key
-		}
+        @Override
+        public void changeSelection(int byNum) {
+            onKey(-63, null);
+        }
     };
 }
